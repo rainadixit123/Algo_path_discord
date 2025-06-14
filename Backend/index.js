@@ -1,0 +1,55 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const {client} = require('./bot');
+
+const sendOTP = require('./src/services/emailService');
+const { storeAndSendOTP } = require('../Backend/src/controllers/otpStore');
+const { generateOneTimeInvite } = require('./bot');
+const User = require('./src/models/User');
+const Otp = require('./src/models/Otp');
+
+
+const app = express();
+app.use(cors({ origin: "http://localhost:3000" }));
+app.use(express.json());
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(console.error);
+
+  
+app.post('/request-otp', async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) return res.status(404).json({ message: 'Email not registered.' });
+
+  const otp = await storeAndSendOTP(email);
+  await sendOTP(email, otp);
+
+  res.json({ message: 'OTP sent' });
+});
+
+
+app.post('/verify-otp', async (req, res) => {
+  const {email,otp}=req.body;
+  const user = await User.findOne({ email }); // ✅ get single user
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const validOtp = await Otp.findOne({ email, otp });
+    if (!validOtp) return res.status(400).json({ message: 'Invalid or expired OTP' });
+
+    await Otp.deleteMany({ email }); 
+
+    // await assignVerifiedRole(discordUserId); 
+
+    // user.discordUserId = discordUserId; 
+    user.isVerified = true;
+    await user.save(); 
+  const inviteLink = await generateOneTimeInvite(process.env.DISCORD_CHANNEL_ID);
+    res.json({ message: 'Verified' ,inviteLink});
+});
+
+app.listen(5000, () => console.log('Server running on http://localhost:5000'));
+client.login(process.env.DISCORD_BOT_TOKEN);
