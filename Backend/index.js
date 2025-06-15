@@ -51,5 +51,5 @@ app.post('/verify-otp', async (req, res) => {
     res.json({ message: 'Verified' ,inviteLink});
 });
 
-app.listen(5000, () => console.log('Server running on http://localhost:5000'));
+// app.listen(5000, () => console.log('Server running on http://localhost:5000'));
 client.login(process.env.DISCORD_BOT_TOKEN);
