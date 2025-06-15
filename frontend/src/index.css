@@ -1,0 +1,71 @@
+body {
+  background-color: #0f172a;
+  color: #f8fafc;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.container {
+  background: #1e293b;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 6px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  background-color: #3b82f6;
+  color: white;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #2563eb;
+}
+
+.discord-button {
+  background-color: #5865f2;
+}
+
+.discord-button:hover {
+  background-color: #4752c4;
+}
+
+.error {
+  color: #f87171;
+  margin-top: 10px;
+}
+.timer {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.resend {
+  margin-top: 10px;
+  background-color: #facc15;
+  color: #1e293b;
+}
+
+.resend:hover {
+  background-color: #eab308;
+}
