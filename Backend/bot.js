@@ -14,7 +14,16 @@ const Doubt=require('./src/models/Doubt')
 const fs = require('fs');
 const path = require('path');
 const { OpenAI } = require('openai');
+const { InteractionResponseFlags } = require('discord-api-types/v10');
 
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY, // from .env
+  // defaultHeaders: {
+  //   'HTTP-Referer': 'https://yourproject.com', // Change to your website/GitHub
+  //   'X-Title': 'Algopath Discord Bot'
+  // }
+});
 
 
 const client = new Client({
@@ -62,26 +71,25 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 client.on('messageCreate', async (message) => {
   // Ignore bots
   if (message.author.bot) return;
 
   // Only respond in specific AI channel
-  if (message.channel.id !== process.env.AI_CHAT_CHANNEL_ID) {     
-     return message.reply(`❌ This command can only be used in AI_CHATBOT CHANNEL}>`);
+  if (message.channel.id !== process.env.AI_CHAT_CHANNEL_ID) {   
+    return;  
+    //  return message.reply(`❌ This command can only be used in AI_CHATBOT CHANNEL}>`);
 }
 
   try {
     const prompt = message.content;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      const completion = await openai.chat.completions.create({
+      model: "mistralai/mistral-7b-instruct", // ✅ Free model on OpenRouter
       messages: [{ role: 'user', content: prompt }],
     });
+
 
     const response = completion.choices[0].message.content;
 
@@ -122,40 +130,79 @@ client.on('messageCreate', async message => {
 
 
 // Handle Button Interactions
-client.on('interactionCreate', async interaction => {
+// In your interactionCreate listener
+client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isButton()) return;
+  const [action, id] = interaction.customId.split('_');
+  if (action !== 'answer') return;
 
-  const [action, doubtId] = interaction.customId.split('_');
+  const doubt = await Doubt.findById(id);
+  if (!doubt) {
+    return interaction.reply('❌ This doubt no longer exists.');
+  }
 
-  if (action === 'resolve') {
-    if (!interaction.member.roles.cache.has(process.env.MENTOR_ROLE_ID)) {
-      return interaction.reply({ content: "🚫 Only mentors can resolve doubts.", ephemeral: true });
+  // Block asker from answering
+  if (interaction.user.id === doubt.userId) {
+    return interaction.reply('🚫 You cannot answer your own doubt.');
+  }
+
+  // Only mentors may answer
+  if (!interaction.member.roles.cache.has(process.env.MENTOR_ROLE_ID)) {
+    return interaction.reply('🚫 Only mentors can submit solutions.');
+  }
+
+  // Prevent the same mentor answering twice
+  if (doubt.solutions.some(s => s.userId === interaction.user.id)) {
+    return interaction.reply('❌ You have already submitted a solution for this doubt.');
+  }
+
+  // Prompt for the solution
+  await interaction.reply('✍️ Please type your solution below (you have 60s):');
+
+  const filter = m => m.author.id === interaction.user.id;
+  const collector = interaction.channel.createMessageCollector({ filter, max: 1, time: 60000 });
+
+  collector.on('collect', async msg => {
+    // Save the solution
+    doubt.solutions.push({
+      userId: msg.author.id,
+      userName: msg.author.tag,
+      content: msg.content,
+      createdAt: new Date()
+    });
+
+    // Auto-resolve on first answer
+    if (doubt.status === 'Open') {
+      doubt.status = 'Resolved';
+      doubt.resolvedBy = msg.author.id;
+      doubt.firstAnswerBy = msg.author.id;
     }
 
-    const doubt = await Doubt.findById(doubtId);
-    if (!doubt || doubt.status === 'Resolved') {
-      return interaction.reply({ content: "❌ Doubt not found or already resolved.", ephemeral: true });
-    }
-
-    doubt.status = 'Resolved';
     await doubt.save();
 
+    // Update the embed: status + append this solution
     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-      .spliceFields(3, 1, { name: "📅 Status", value: "✅ Resolved", inline: true })
-      .setColor(0x00cc66);
+      .spliceFields(1, 1, {
+        name: '📅 Status',
+        value: doubt.status === 'Resolved' ? '✅ Resolved' : '🟡 Open',
+        inline: true
+      })
+      .addFields({
+        name: `🧠 Solution by ${msg.author.tag}`,
+        value: msg.content.slice(0, 1024)
+      })
+      .setColor(doubt.status === 'Resolved' ? 0x00CC66 : 0xFFCC00);
 
-    const disabledButton = new ButtonBuilder()
-      .setCustomId(`resolve_${doubtId}`)
-      .setLabel("✅ Resolved")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true);
+    // Edit message (button stays active)
+    await interaction.message.edit({ embeds: [updatedEmbed] });
 
-    const row = new ActionRowBuilder().addComponents(disabledButton);
+    // React for community voting
+    msg.react('👍');
+    msg.react('👎');
 
-    await interaction.update({ embeds: [updatedEmbed], components: [row] });
-  }
+    interaction.followUp('✅ Solution added!');
+  });
 });
-
 
 async function generateOneTimeInvite(channelId) {
   const channel = await client.channels.fetch(channelId);
