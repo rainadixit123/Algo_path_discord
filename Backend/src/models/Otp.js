@@ -1,4 +1,4 @@
-  const mongoose = require('mongoose');
+ const mongoose = require('../config/connect');
 
 const otpSchema = new mongoose.Schema({
   email: {
