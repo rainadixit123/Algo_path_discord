@@ -23,7 +23,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(console.error);
 
   
-app.post('/request-otp', async (req, res) => {
+app.post('/api/request-otp', async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) return res.status(404).json({ message: 'Email not registered.' });
@@ -35,7 +35,7 @@ app.post('/request-otp', async (req, res) => {
 });
 
 
-app.post('/verify-otp', async (req, res) => {
+app.post('/api/verify-otp', async (req, res) => {
   const {email,otp}=req.body;
   const user = await User.findOne({ email }); // ✅ get single user
     if (!user) return res.status(404).json({ message: 'User not found' });
