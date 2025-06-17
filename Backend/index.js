@@ -13,7 +13,7 @@ const Otp = require('./src/models/Otp');
 
 const app = express();
 app.use(cors({
-  origin: "https://algo-path-discord-nnx3.vercel.app/", 
+  origin: "https://algo-path-discord-nnx3.vercel.app", 
   credentials: true,
 }));
 app.use(express.json());
